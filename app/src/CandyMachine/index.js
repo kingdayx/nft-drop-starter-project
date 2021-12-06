@@ -9,6 +9,8 @@ import {
   TOKEN_METADATA_PROGRAM_ID,
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
 } from "./helpers";
+import CountdownTimer from "../CountdownTimer";
+
 const {
   metadata: { Metadata, MetadataProgram },
 } = programs;
@@ -29,6 +31,9 @@ const MAX_CREATOR_LEN = 32 + 1 + 1;
 const CandyMachine = ({ walletAddress }) => {
   // Actions
   const [machineStats, setMachineStats] = useState(null);
+  const [mints, setMints] = useState([]);
+  const [isMinting, setIsMinting] = useState(false);
+  const [isLoadingMints, setIsLoadingMints] = useState(false);
 
   const getCandyMachineState = async () => {
     const provider = getProvider();
@@ -61,6 +66,27 @@ const CandyMachine = ({ walletAddress }) => {
       goLiveData,
       goLiveDateTimeString,
     });
+    const data = await fetchHashTable(
+      "Bew6TKz8EgpTRGnrYQLg9Qw8KuZbb9n8NDGXnRWaF9sC",
+      true
+    );
+    setIsLoadingMints(true);
+
+    if (data.length !== 0) {
+      for (const mint of data) {
+        // Get URI
+        const response = await fetch(mint.data.uri);
+        const parse = await response.json();
+        console.log("Past Minted NFT", mint);
+        // Get image URI
+        if (!mints.find((mint) => mint === parse.image)) {
+          setMints((prevState) => [...prevState, parse.image]);
+        }
+      }
+    }
+
+    // Remove loading flag.
+    setIsLoadingMints(false);
   };
 
   useEffect(() => {
@@ -80,50 +106,51 @@ const CandyMachine = ({ walletAddress }) => {
 
     return provider;
   };
-  // const fetchHashTable = async (hash, metadataEnabled) => {
-  //   const connection = new web3.Connection(
-  //     process.env.REACT_APP_SOLANA_RPC_HOST
-  //   );
 
-  //   const metadataAccounts = await MetadataProgram.getProgramAccounts(
-  //     connection,
-  //     {
-  //       filters: [
-  //         {
-  //           memcmp: {
-  //             offset:
-  //               1 +
-  //               32 +
-  //               32 +
-  //               4 +
-  //               MAX_NAME_LENGTH +
-  //               4 +
-  //               MAX_URI_LENGTH +
-  //               4 +
-  //               MAX_SYMBOL_LENGTH +
-  //               2 +
-  //               1 +
-  //               4 +
-  //               0 * MAX_CREATOR_LEN,
-  //             bytes: hash,
-  //           },
-  //         },
-  //       ],
-  //     }
-  //   );
+  const fetchHashTable = async (hash, metadataEnabled) => {
+    const connection = new web3.Connection(
+      " https://explorer-api.devnet.solana.com"
+    );
 
-  //   const mintHashes = [];
+    const metadataAccounts = await MetadataProgram.getProgramAccounts(
+      connection,
+      {
+        filters: [
+          {
+            memcmp: {
+              offset:
+                1 +
+                32 +
+                32 +
+                4 +
+                MAX_NAME_LENGTH +
+                4 +
+                MAX_URI_LENGTH +
+                4 +
+                MAX_SYMBOL_LENGTH +
+                2 +
+                1 +
+                4 +
+                0 * MAX_CREATOR_LEN,
+              bytes: hash,
+            },
+          },
+        ],
+      }
+    );
 
-  //   for (let index = 0; index < metadataAccounts.length; index++) {
-  //     const account = metadataAccounts[index];
-  //     const accountInfo = await connection.getParsedAccountInfo(account.pubkey);
-  //     const metadata = new Metadata(hash.toString(), accountInfo.value);
-  //     if (metadataEnabled) mintHashes.push(metadata.data);
-  //     else mintHashes.push(metadata.data.mint);
-  //   }
+    const mintHashes = [];
 
-  //   return mintHashes;
-  // };
+    for (let index = 0; index < metadataAccounts.length; index++) {
+      const account = metadataAccounts[index];
+      const accountInfo = await connection.getParsedAccountInfo(account.pubkey);
+      const metadata = new Metadata(hash.toString(), accountInfo.value);
+      if (metadataEnabled) mintHashes.push(metadata.data);
+      else mintHashes.push(metadata.data.mint);
+    }
+
+    return mintHashes;
+  };
 
   const getMetadata = async (mint) => {
     return (
@@ -163,6 +190,7 @@ const CandyMachine = ({ walletAddress }) => {
 
   const mintToken = async () => {
     try {
+      setIsMinting(true);
       const mint = web3.Keypair.generate();
       const token = await getTokenWallet(
         walletAddress.publicKey,
@@ -170,7 +198,7 @@ const CandyMachine = ({ walletAddress }) => {
       );
       const metadata = await getMetadata(mint.publicKey);
       const masterEdition = await getMasterEdition(mint.publicKey);
-      const rpcHost = process.env.REACT_APP_SOLANA_RPC_HOST;
+      const rpcHost = "https://explorer-api.devnet.solana.com";
       const connection = new Connection(rpcHost);
       const rent = await connection.getMinimumBalanceForRentExemption(
         MintLayout.span
@@ -178,9 +206,9 @@ const CandyMachine = ({ walletAddress }) => {
 
       const accounts = {
         config,
-        candyMachine: process.env.REACT_APP_CANDY_MACHINE_ID,
+        candyMachine: "Bew6TKz8EgpTRGnrYQLg9Qw8KuZbb9n8NDGXnRWaF9sC",
         payer: walletAddress.publicKey,
-        wallet: process.env.REACT_APP_TREASURY_ADDRESS,
+        wallet: "8L9qyHwuY7ZDttjyfo3mA2RxaVxUrermLULz31ahuvt6",
         mint: mint.publicKey,
         metadata,
         masterEdition,
@@ -254,7 +282,7 @@ const CandyMachine = ({ walletAddress }) => {
       );
     } catch (error) {
       let message = error.msg || "Minting failed! Please try again!";
-
+      setIsMinting(false);
       if (!error.msg) {
         if (error.message.indexOf("0x138")) {
         } else if (error.message.indexOf("0x137")) {
@@ -272,6 +300,35 @@ const CandyMachine = ({ walletAddress }) => {
 
       console.warn(message);
     }
+  };
+
+  const renderMintedItems = () => (
+    <div className="gif-container">
+      <p className="sub-text">Minted Items ✨</p>
+      <div className="gif-grid">
+        {mints.map((mint) => (
+          <div className="gif-item" key={mint}>
+            <img src={mint} alt={`Minted NFT ${mint}`} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderDropTimer = () => {
+    // Get the current date and dropDate in a JavaScript Date object
+    const currentDate = new Date();
+    const dropDate = new Date(machineStats.goLiveData * 1000);
+
+    // If currentDate is before dropDate, render our Countdown component
+    if (currentDate < dropDate) {
+      console.log("Before drop date!");
+      // Don't forget to pass over your dropDate!
+      return <CountdownTimer dropDate={dropDate} />;
+    }
+
+    // Else let's just return the current drop date
+    return <p>{`Drop Date: ${machineStats.goLiveDateTimeString}`}</p>;
   };
 
   const createAssociatedTokenAccountInstruction = (
@@ -308,11 +365,21 @@ const CandyMachine = ({ walletAddress }) => {
     // Only show this if machineStats is available
     machineStats && (
       <div className="machine-container">
-        <p>{`Drop Date: ${machineStats.goLiveDateTimeString}`}</p>
+        {renderDropTimer()}
         <p>{`Items Minted: ${machineStats.itemsRedeemed} / ${machineStats.itemsAvailable}`}</p>
-        <button className="cta-button mint-button" onClick={null}>
-          Mint NFT
-        </button>
+        {machineStats.itemsRedeemed === machineStats.itemsAvailable ? (
+          <p className="sub-text">Sold Out 🙊</p>
+        ) : (
+          <button
+            className="cta-button mint-button"
+            onClick={mintToken}
+            disabled={isMinting}
+          >
+            Mint NFT
+          </button>
+        )}
+        {isLoadingMints && <p>LOADING MINTS...</p>}
+        {mints && renderMintedItems()}
       </div>
     )
   );
