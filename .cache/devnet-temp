@@ -1,0 +1,28 @@
+{
+  "program": {
+    "uuid": "31Kdii",
+    "config": "31KdiipoiYLNqwU9YaatyCSghx6n96ZJ1VxsjKZRd1gq"
+  },
+  "items": {
+    "0": {
+      "link": "https://arweave.net/WYZ5Kn8BcTnUx8TSpjH6mjMHLlQVMwvZnVjZID5d0wQ",
+      "name": "Aleck",
+      "onChain": true
+    },
+    "1": {
+      "link": "https://arweave.net/zxLlmlytQRWMau-xx11KKUuSOCsFgXgNz8yhMTxx7ME",
+      "name": "bear",
+      "onChain": true
+    },
+    "2": {
+      "link": "https://arweave.net/2o2OeeIRI1SLvkUsYGd35OiklIZ-RSaZoGVxiOhk3Yw",
+      "name": "sun",
+      "onChain": true
+    }
+  },
+  "env": "devnet",
+  "cacheName": "temp",
+  "authority": "8L9qyHwuY7ZDttjyfo3mA2RxaVxUrermLULz31ahuvt6",
+  "candyMachineAddress": "Bew6TKz8EgpTRGnrYQLg9Qw8KuZbb9n8NDGXnRWaF9sC",
+  "startDate": 1638663120
+}

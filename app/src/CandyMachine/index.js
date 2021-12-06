@@ -1,22 +1,24 @@
-import React from 'react';
-import { Connection, PublicKey } from '@solana/web3.js';
-import { Program, Provider, web3 } from '@project-serum/anchor';
-import { MintLayout, TOKEN_PROGRAM_ID, Token } from '@solana/spl-token';
-import { programs } from '@metaplex/js';
-import './CandyMachine.css';
+import React, { useEffect, useState } from "react";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { Program, Provider, web3 } from "@project-serum/anchor";
+import { MintLayout, TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
+import { programs } from "@metaplex/js";
+import "./CandyMachine.css";
 import {
   candyMachineProgram,
   TOKEN_METADATA_PROGRAM_ID,
   SPL_ASSOCIATED_TOKEN_ACCOUNT_PROGRAM_ID,
-} from './helpers';
+} from "./helpers";
 const {
   metadata: { Metadata, MetadataProgram },
 } = programs;
 
-const config = new web3.PublicKey(process.env.REACT_APP_CANDY_MACHINE_CONFIG);
+const config = new web3.PublicKey(
+  "31KdiipoiYLNqwU9YaatyCSghx6n96ZJ1VxsjKZRd1gq"
+);
 const { SystemProgram } = web3;
 const opts = {
-  preflightCommitment: 'processed',
+  preflightCommitment: "processed",
 };
 
 const MAX_NAME_LENGTH = 32;
@@ -26,56 +28,108 @@ const MAX_CREATOR_LEN = 32 + 1 + 1;
 
 const CandyMachine = ({ walletAddress }) => {
   // Actions
-  const fetchHashTable = async (hash, metadataEnabled) => {
-    const connection = new web3.Connection(
-      process.env.REACT_APP_SOLANA_RPC_HOST
+  const [machineStats, setMachineStats] = useState(null);
+
+  const getCandyMachineState = async () => {
+    const provider = getProvider();
+    const idl = await Program.fetchIdl(candyMachineProgram, provider);
+    const program = new Program(idl, candyMachineProgram, provider);
+    const candyMachine = await program.account.candyMachine.fetch(
+      "Bew6TKz8EgpTRGnrYQLg9Qw8KuZbb9n8NDGXnRWaF9sC"
     );
 
-    const metadataAccounts = await MetadataProgram.getProgramAccounts(
-      connection,
-      {
-        filters: [
-          {
-            memcmp: {
-              offset:
-                1 +
-                32 +
-                32 +
-                4 +
-                MAX_NAME_LENGTH +
-                4 +
-                MAX_URI_LENGTH +
-                4 +
-                MAX_SYMBOL_LENGTH +
-                2 +
-                1 +
-                4 +
-                0 * MAX_CREATOR_LEN,
-              bytes: hash,
-            },
-          },
-        ],
-      }
-    );
+    const itemsAvailable = candyMachine.data.itemsAvailable.toNumber();
+    const itemsRedeemed = candyMachine.itemsRedeemed.toNumber();
+    const itemsRemaining = itemsAvailable - itemsRedeemed;
+    const goLiveData = candyMachine.data.goLiveDate.toNumber();
 
-    const mintHashes = [];
+    const goLiveDateTimeString = `${new Date(goLiveData * 1000).toGMTString()}`;
 
-    for (let index = 0; index < metadataAccounts.length; index++) {
-      const account = metadataAccounts[index];
-      const accountInfo = await connection.getParsedAccountInfo(account.pubkey);
-      const metadata = new Metadata(hash.toString(), accountInfo.value);
-      if (metadataEnabled) mintHashes.push(metadata.data);
-      else mintHashes.push(metadata.data.mint);
-    }
+    // Add this data to your state to render
+    setMachineStats({
+      itemsAvailable,
+      itemsRedeemed,
+      itemsRemaining,
+      goLiveData,
+      goLiveDateTimeString,
+    });
 
-    return mintHashes;
+    console.log({
+      itemsAvailable,
+      itemsRedeemed,
+      itemsRemaining,
+      goLiveData,
+      goLiveDateTimeString,
+    });
   };
+
+  useEffect(() => {
+    getCandyMachineState();
+  }, []);
+  const getProvider = () => {
+    const rpcHost = "https://explorer-api.devnet.solana.com";
+    // Create a new connection object
+    const connection = new Connection(rpcHost);
+
+    // Create a new Solana provider object
+    const provider = new Provider(
+      connection,
+      window.solana,
+      opts.preflightCommitment
+    );
+
+    return provider;
+  };
+  // const fetchHashTable = async (hash, metadataEnabled) => {
+  //   const connection = new web3.Connection(
+  //     process.env.REACT_APP_SOLANA_RPC_HOST
+  //   );
+
+  //   const metadataAccounts = await MetadataProgram.getProgramAccounts(
+  //     connection,
+  //     {
+  //       filters: [
+  //         {
+  //           memcmp: {
+  //             offset:
+  //               1 +
+  //               32 +
+  //               32 +
+  //               4 +
+  //               MAX_NAME_LENGTH +
+  //               4 +
+  //               MAX_URI_LENGTH +
+  //               4 +
+  //               MAX_SYMBOL_LENGTH +
+  //               2 +
+  //               1 +
+  //               4 +
+  //               0 * MAX_CREATOR_LEN,
+  //             bytes: hash,
+  //           },
+  //         },
+  //       ],
+  //     }
+  //   );
+
+  //   const mintHashes = [];
+
+  //   for (let index = 0; index < metadataAccounts.length; index++) {
+  //     const account = metadataAccounts[index];
+  //     const accountInfo = await connection.getParsedAccountInfo(account.pubkey);
+  //     const metadata = new Metadata(hash.toString(), accountInfo.value);
+  //     if (metadataEnabled) mintHashes.push(metadata.data);
+  //     else mintHashes.push(metadata.data.mint);
+  //   }
+
+  //   return mintHashes;
+  // };
 
   const getMetadata = async (mint) => {
     return (
       await PublicKey.findProgramAddress(
         [
-          Buffer.from('metadata'),
+          Buffer.from("metadata"),
           TOKEN_METADATA_PROGRAM_ID.toBuffer(),
           mint.toBuffer(),
         ],
@@ -88,10 +142,10 @@ const CandyMachine = ({ walletAddress }) => {
     return (
       await PublicKey.findProgramAddress(
         [
-          Buffer.from('metadata'),
+          Buffer.from("metadata"),
           TOKEN_METADATA_PROGRAM_ID.toBuffer(),
           mint.toBuffer(),
-          Buffer.from('edition'),
+          Buffer.from("edition"),
         ],
         TOKEN_METADATA_PROGRAM_ID
       )
@@ -181,31 +235,31 @@ const CandyMachine = ({ walletAddress }) => {
         instructions,
       });
 
-      console.log('txn:', txn);
+      console.log("txn:", txn);
 
       // Setup listener
       connection.onSignatureWithOptions(
         txn,
         async (notification, context) => {
-          if (notification.type === 'status') {
-            console.log('Receievd status event');
+          if (notification.type === "status") {
+            console.log("Receievd status event");
 
             const { result } = notification;
             if (!result.err) {
-              console.log('NFT Minted!');
+              console.log("NFT Minted!");
             }
           }
         },
-        { commitment: 'processed' }
+        { commitment: "processed" }
       );
     } catch (error) {
-      let message = error.msg || 'Minting failed! Please try again!';
+      let message = error.msg || "Minting failed! Please try again!";
 
       if (!error.msg) {
-        if (error.message.indexOf('0x138')) {
-        } else if (error.message.indexOf('0x137')) {
+        if (error.message.indexOf("0x138")) {
+        } else if (error.message.indexOf("0x137")) {
           message = `SOLD OUT!`;
-        } else if (error.message.indexOf('0x135')) {
+        } else if (error.message.indexOf("0x135")) {
           message = `Insufficient funds to mint. Please fund your wallet.`;
         }
       } else {
@@ -251,13 +305,16 @@ const CandyMachine = ({ walletAddress }) => {
   };
 
   return (
-    <div className="machine-container">
-      <p>Drop Date:</p>
-      <p>Items Minted:</p>
-      <button className="cta-button mint-button" onClick={mintToken}>
-        Mint NFT
-      </button>
-    </div>
+    // Only show this if machineStats is available
+    machineStats && (
+      <div className="machine-container">
+        <p>{`Drop Date: ${machineStats.goLiveDateTimeString}`}</p>
+        <p>{`Items Minted: ${machineStats.itemsRedeemed} / ${machineStats.itemsAvailable}`}</p>
+        <button className="cta-button mint-button" onClick={null}>
+          Mint NFT
+        </button>
+      </div>
+    )
   );
 };
 

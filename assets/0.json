@@ -1,0 +1,19 @@
+{
+  "name": "Aleck",
+  "symbol": "",
+  "image": "0.png",
+  "properties": {
+    "files": [
+      {
+        "uri": "0.png",
+        "type": "image/png"
+      }
+    ],
+    "creators": [
+      {
+        "address": "5eaq3BDsJ6H13EFwji6pjVfciDGV3PoZ57LrVtytFVjC",
+        "share": 100
+      }
+    ]
+  }
+}
